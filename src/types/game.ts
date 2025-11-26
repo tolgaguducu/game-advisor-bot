@@ -6,7 +6,7 @@ export interface Game {
   background_image: string;
   rating: number;
   genres: Genre[];
-  description_raw?: string; // RAWG API details endpoint returns this
+  description_raw?: string;
 }
 
 export interface Genre {

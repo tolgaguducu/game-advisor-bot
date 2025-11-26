@@ -7,11 +7,9 @@ export class TwitterService {
   private readOnly: boolean = false;
 
   constructor() {
-    // Check if keys are present
     if (!config.twitterApiKey || !config.twitterApiSecret || !config.twitterAccessToken || !config.twitterAccessSecret) {
       console.warn('⚠️  Twitter API keys are missing. Running in READ-ONLY (Dry Run) mode.');
       this.readOnly = true;
-      // Initialize with dummy keys to prevent crash, but methods will check readOnly flag
       this.client = new TwitterApi({ appKey: 'dummy', appSecret: 'dummy', accessToken: 'dummy', accessSecret: 'dummy' });
     } else {
       this.client = new TwitterApi({

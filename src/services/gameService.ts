@@ -16,17 +16,13 @@ export class GameService {
 
   async getRandomGame(historyService?: { has: (id: number) => boolean }): Promise<Game | null> {
     try {
-      // RAWG doesn't have a direct "random" endpoint, so we can fetch a list of popular games
-      // and pick one, or use a random page.
-      // Strategy: Get a random page of highly rated games.
-      
-      const page = Math.floor(Math.random() * 100) + 1; // Random page between 1 and 100
+      const page = Math.floor(Math.random() * 100) + 1;
       
       const response = await axios.get(`${RAWG_BASE_URL}/games`, {
         params: {
           key: this.apiKey,
-          dates: '2015-01-01,2025-11-23', // Recent games
-          ordering: '-rating', // Best rated
+          dates: '2015-01-01,2025-11-23',
+          ordering: '-rating',
           page_size: 20,
           page: page
         }
@@ -34,10 +30,8 @@ export class GameService {
 
       const games = response.data.results;
       if (games && games.length > 0) {
-        // Shuffle the games to get random candidates
         const shuffledGames = games.sort(() => 0.5 - Math.random());
 
-        // Try up to 5 games from the list to find one with a description AND not in history
         for (const basicGame of shuffledGames.slice(0, 5)) {
           if (historyService && historyService.has(basicGame.id)) {
             console.log(`Skipping ${basicGame.name} (already recommended)...`);

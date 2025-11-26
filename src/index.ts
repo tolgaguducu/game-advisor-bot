@@ -15,7 +15,6 @@ async function main() {
   const game = await gameService.getRandomGame(historyService);
 
   if (game) {
-    // Add to history
     historyService.add(game.id);
     
     console.log('\n--------------------------------------------------');
@@ -24,7 +23,6 @@ async function main() {
     console.log(`🎭 Genre: ${game.genres.map(g => g.name).join(', ')}`);
     console.log('--------------------------------------------------\n');
 
-    // Post to Twitter
     await twitterService.postTweet(game);
 
   } else {
