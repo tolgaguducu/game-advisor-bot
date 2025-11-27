@@ -72,11 +72,21 @@ export class TwitterService {
   }
 
   private formatTweet(game: Game): string {
-    const genres = game.genres.map(g => g.name).join(', ');
+    const genres = game.genres.slice(0, 2).map(g => g.name).join(', ');
+    const platforms = game.platforms?.slice(0, 3).map(p => p.platform.name).join(', ') || '';
+    const developers = game.developers?.slice(0, 1).map(d => d.name).join(', ') || '';
 
-    return `🎮 Game of the Day: ${game.name}\n` +
-           `⭐ Rating: ${game.rating}/5\n` +
-           `🎭 Genre: ${genres}\n\n` +
-           `#GameRecommendation #Gaming`;
+    let header = `🎮 Daily Game Recommendation: ${game.name}\n\n`;
+    let metadata = '';
+
+    if (game.released) metadata += `📅 Released: ${game.released}\n`;
+    if (game.metacritic) metadata += `⭐️ Metacritic: ${game.metacritic}\n`;
+    if (game.playtime) metadata += `⏱️ Playtime: ${game.playtime} hours\n`;
+    if (developers) metadata += `👨‍💻 Dev: ${developers}\n`;
+    if (platforms) metadata += `🕹️ Platforms: ${platforms}\n`;
+
+    const hashtags = `\n#GameRecommendation #Gaming #${game.slug.replace(/-/g, '')}`;
+    
+    return `${header}${metadata}${hashtags}`;
   }
 }
