@@ -85,7 +85,7 @@ export class TwitterService {
     if (developers) metadata += `👨‍💻 Dev: ${developers}\n`;
     if (platforms) metadata += `🕹️ Platforms: ${platforms}\n`;
 
-    const hashtags = `\n#GameRecommendation #Gaming #${game.slug.replace(/-/g, '')}`;
+    const hashtags = `\n#GameRecommendation #Gaming #OyunumaDokunma`;
     
     return `${header}${metadata}${hashtags}`;
   }
