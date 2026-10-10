@@ -12,31 +12,22 @@ export class HistoryService {
     this.load();
   }
 
+  // Throws on a corrupt file instead of starting empty, which would overwrite the history on the next save.
   private load() {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(HISTORY_FILE)) {
+      return;
     }
 
-    if (fs.existsSync(HISTORY_FILE)) {
-      try {
-        const data = fs.readFileSync(HISTORY_FILE, 'utf-8');
-        const ids = JSON.parse(data);
-        if (Array.isArray(ids)) {
-          this.history = new Set(ids);
-        }
-      } catch (error) {
-        console.error('Error loading history:', error);
-      }
+    const ids = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf-8'));
+    if (!Array.isArray(ids)) {
+      throw new Error(`${HISTORY_FILE} must contain a JSON array of game IDs.`);
     }
+    this.history = new Set(ids);
   }
 
   private save() {
-    try {
-      const data = JSON.stringify(Array.from(this.history), null, 2);
-      fs.writeFileSync(HISTORY_FILE, data);
-    } catch (error) {
-      console.error('Error saving history:', error);
-    }
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(Array.from(this.history), null, 2));
   }
 
   has(gameId: number): boolean {

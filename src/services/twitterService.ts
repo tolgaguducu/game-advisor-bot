@@ -4,15 +4,10 @@ import { config } from '../config/env';
 import { Game } from '../types/game';
 
 export class TwitterService {
-  private client: TwitterApi;
-  private readOnly: boolean = false;
+  private client?: TwitterApi;
 
   constructor() {
-    if (!config.twitterApiKey || !config.twitterApiSecret || !config.twitterAccessToken || !config.twitterAccessSecret) {
-      console.warn('⚠️  Twitter API keys are missing. Running in READ-ONLY (Dry Run) mode.');
-      this.readOnly = true;
-      this.client = new TwitterApi({ appKey: 'dummy', appSecret: 'dummy', accessToken: 'dummy', accessSecret: 'dummy' });
-    } else {
+    if (config.twitterApiKey && config.twitterApiSecret && config.twitterAccessToken && config.twitterAccessSecret) {
       this.client = new TwitterApi({
         appKey: config.twitterApiKey,
         appSecret: config.twitterApiSecret,
@@ -22,57 +17,49 @@ export class TwitterService {
     }
   }
 
-  async postTweet(game: Game): Promise<boolean> {
+  get isConfigured(): boolean {
+    return this.client !== undefined;
+  }
+
+  async postTweet(game: Game): Promise<void> {
+    if (!this.client) {
+      throw new Error('Twitter client is not configured.');
+    }
+
     const tweetText = this.formatTweet(game);
 
-    if (this.readOnly) {
-      console.log('\n[DRY RUN] Would post tweet:');
-      console.log('--------------------------------------------------');
-      console.log(tweetText);
-      if (game.background_image) {
-        console.log(`[Image URL]: ${game.background_image}`);
-      }
-      console.log('--------------------------------------------------\n');
-      return true;
+    let mediaId: string | undefined;
+    if (game.background_image) {
+      console.log('🖼️  Uploading game image...');
+      mediaId = await this.uploadMedia(this.client, game.background_image);
     }
 
     try {
-      let mediaId: string | undefined;
-
-      if (game.background_image) {
-        console.log('🖼️  Uploading game image...');
-        mediaId = await this.uploadMedia(game.background_image);
-      }
-
       if (mediaId) {
         await this.client.v2.tweet(tweetText, { media: { media_ids: [mediaId] } });
       } else {
         await this.client.v2.tweet(tweetText);
       }
-      
-      console.log('✅ Tweet posted successfully!');
-      return true;
     } catch (error) {
-      console.error('❌ Error posting tweet:', error);
-      return false;
+      throw new Error(`Error posting tweet: ${describeError(error)}`);
     }
+
+    console.log('✅ Tweet posted successfully!');
   }
 
-  private async uploadMedia(imageUrl: string): Promise<string | undefined> {
+  private async uploadMedia(client: TwitterApi, imageUrl: string): Promise<string | undefined> {
     try {
       const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-      const buffer = Buffer.from(response.data, 'binary');
-      
-      const mediaId = await this.client.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' }); // Assuming JPEG, RAWG mostly uses JPG
-      return mediaId;
+      const contentType = response.headers['content-type'];
+      const mimeType = typeof contentType === 'string' ? contentType : 'image/jpeg';
+      return await client.v1.uploadMedia(Buffer.from(response.data), { mimeType });
     } catch (error) {
-      console.error('⚠️  Failed to upload media, posting text only:', error);
+      console.error(`⚠️  Failed to upload media, posting text only: ${describeError(error)}`);
       return undefined;
     }
   }
 
-  private formatTweet(game: Game): string {
-    const genres = game.genres.slice(0, 2).map(g => g.name).join(', ');
+  formatTweet(game: Game): string {
     const platforms = game.platforms?.slice(0, 3).map(p => p.platform.name).join(', ') || '';
     const developers = game.developers?.slice(0, 1).map(d => d.name).join(', ') || '';
 
@@ -86,7 +73,16 @@ export class TwitterService {
     if (platforms) metadata += `🕹️ Platforms: ${platforms}\n`;
 
     const hashtags = `\n#GameRecommendation #Gaming #OyunumaDokunma`;
-    
+
     return `${header}${metadata}${hashtags}`;
   }
+}
+
+// twitter-api-v2 errors carry the API response body (e.g. "credits depleted") in `data`.
+function describeError(error: unknown): string {
+  const apiError = error as { code?: number; data?: { title?: string; detail?: string } };
+  if (apiError.code && apiError.data) {
+    return `${apiError.code} ${apiError.data.title ?? ''} - ${apiError.data.detail ?? JSON.stringify(apiError.data)}`;
+  }
+  return error instanceof Error ? error.message : String(error);
 }

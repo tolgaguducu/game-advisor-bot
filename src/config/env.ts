@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 export const config = {
   rawgApiKey: process.env.RAWG_API_KEY || '',
