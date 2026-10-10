@@ -17,8 +17,9 @@ export function describeError(error: unknown): string {
     return `${apiError.code} ${title ?? ''}${detail ? ` - ${detail}` : ''}`.trim();
   }
 
+  // Plain Errors are thrown deliberately with a readable message. Anything else (TypeError, ...) is a bug and needs the stack.
   if (error instanceof Error) {
-    return error.stack ?? error.message;
+    return error.constructor === Error ? error.message : (error.stack ?? error.message);
   }
   return String(error);
 }

@@ -2,17 +2,16 @@ import { formatPost } from './post';
 import { Publisher } from './publishers/publisher';
 import { GameService, RecommendationMode } from './services/gameService';
 import { HistoryService } from './services/historyService';
-import { describeError } from './utils/errors';
 
 export interface BotOptions {
   gameService: Pick<GameService, 'getRandomGame'>;
   history: Pick<HistoryService, 'has' | 'add'>;
-  /** An empty list means dry run: the post is only printed and history is left untouched. */
-  publishers: Publisher[];
+  /** Undefined means dry run: the post is only printed and history is left untouched. */
+  publisher?: Publisher;
   mode: RecommendationMode;
 }
 
-export async function runBot({ gameService, history, publishers, mode }: BotOptions): Promise<void> {
+export async function runBot({ gameService, history, publisher, mode }: BotOptions): Promise<void> {
   console.log(`Fetching a ${mode} game recommendation...`);
   const game = await gameService.getRandomGame(history, mode);
   if (!game) {
@@ -27,8 +26,8 @@ export async function runBot({ gameService, history, publishers, mode }: BotOpti
 
   const post = formatPost(game);
 
-  if (publishers.length === 0) {
-    console.warn('⚠️  No publishing platform is configured. Running in DRY RUN mode, history will not be updated.');
+  if (!publisher) {
+    console.warn('⚠️  Credentials are missing. Running in DRY RUN mode, history will not be updated.');
     console.log('--------------------------------------------------');
     console.log(post.text);
     console.log(`[Image URL]: ${post.image?.url ?? 'none'}`);
@@ -36,22 +35,7 @@ export async function runBot({ gameService, history, publishers, mode }: BotOpti
     return;
   }
 
-  const failed: string[] = [];
-  for (const publisher of publishers) {
-    try {
-      await publisher.publish(post);
-      console.log(`✅ Posted to ${publisher.name}`);
-    } catch (error) {
-      failed.push(publisher.name);
-      console.error(`❌ Failed to post to ${publisher.name}: ${describeError(error)}`);
-    }
-  }
-
-  // Once a game reached any platform it counts as recommended, so a later run never posts it twice.
-  if (failed.length < publishers.length) {
-    history.add(game.id);
-  }
-  if (failed.length > 0) {
-    throw new Error(`Posting failed on: ${failed.join(', ')}`);
-  }
+  await publisher.publish(post);
+  history.add(game.id);
+  console.log(`✅ Posted to ${publisher.name}`);
 }

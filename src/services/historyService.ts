@@ -1,12 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 
-const DEFAULT_HISTORY_FILE = path.join(process.cwd(), 'data', 'history.json');
-
 export class HistoryService {
   private history = new Set<number>();
 
-  constructor(private readonly file: string = DEFAULT_HISTORY_FILE) {
+  constructor(private readonly file: string) {
     this.load();
   }
 

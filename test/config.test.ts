@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadConfig } from '../src/config/env';
 
+const rawgEnv = { RAWG_API_KEY: 'rawg' };
 const twitterEnv = {
   TWITTER_API_KEY: 'key',
   TWITTER_API_SECRET: 'secret',
@@ -9,16 +10,21 @@ const twitterEnv = {
   TWITTER_ACCESS_SECRET: 'token-secret',
 };
 
-test('requires a RAWG API key', () => {
-  assert.throws(() => loadConfig({}), /RAWG_API_KEY is missing/);
+test('requires a known platform', () => {
+  assert.throws(() => loadConfig(undefined, rawgEnv), /Usage: npm start -- <platform>/);
+  assert.throws(() => loadConfig('myspace', rawgEnv), /Usage: npm start -- <platform>/);
 });
 
-test('leaves X disabled when none of its variables are set', () => {
-  assert.equal(loadConfig({ RAWG_API_KEY: 'rawg' }).twitter, undefined);
+test('requires a RAWG API key', () => {
+  assert.throws(() => loadConfig('x', {}), /RAWG_API_KEY is missing/);
+});
+
+test('leaves X unconfigured when none of its variables are set', () => {
+  assert.equal(loadConfig('x', rawgEnv).twitter, undefined);
 });
 
 test('reads X credentials', () => {
-  assert.deepEqual(loadConfig({ RAWG_API_KEY: 'rawg', ...twitterEnv }).twitter, {
+  assert.deepEqual(loadConfig('x', { ...rawgEnv, ...twitterEnv }).twitter, {
     appKey: 'key',
     appSecret: 'secret',
     accessToken: 'token',
@@ -28,12 +34,12 @@ test('reads X credentials', () => {
 
 test('fails when X credentials are only partially set', () => {
   assert.throws(
-    () => loadConfig({ RAWG_API_KEY: 'rawg', ...twitterEnv, TWITTER_ACCESS_SECRET: '' }),
+    () => loadConfig('x', { ...rawgEnv, ...twitterEnv, TWITTER_ACCESS_SECRET: '' }),
     /Missing TWITTER_ACCESS_SECRET/,
   );
 });
 
 test('validates RECOMMENDATION_MODE', () => {
-  assert.equal(loadConfig({ RAWG_API_KEY: 'rawg', RECOMMENDATION_MODE: 'hidden-gem' }).recommendationMode, 'hidden-gem');
-  assert.throws(() => loadConfig({ RAWG_API_KEY: 'rawg', RECOMMENDATION_MODE: 'foo' }), /Unknown RECOMMENDATION_MODE/);
+  assert.equal(loadConfig('x', { ...rawgEnv, RECOMMENDATION_MODE: 'hidden-gem' }).recommendationMode, 'hidden-gem');
+  assert.throws(() => loadConfig('x', { ...rawgEnv, RECOMMENDATION_MODE: 'foo' }), /Unknown RECOMMENDATION_MODE/);
 });

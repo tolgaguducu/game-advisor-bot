@@ -1,5 +1,8 @@
 import { RECOMMENDATION_MODES, RecommendationMode } from '../services/gameService';
 
+export const PLATFORMS = ['x'] as const;
+export type Platform = typeof PLATFORMS[number];
+
 export interface TwitterCredentials {
   appKey: string;
   appSecret: string;
@@ -8,31 +11,42 @@ export interface TwitterCredentials {
 }
 
 export interface Config {
+  platform: Platform;
   rawgApiKey: string;
   /** Forces a mode instead of picking one based on the day. */
   recommendationMode?: RecommendationMode;
-  /** Undefined when posting to X is not configured. */
+  /** Only read for the selected platform. Undefined when not configured, which means dry run. */
   twitter?: TwitterCredentials;
 }
 
 type Env = Record<string, string | undefined>;
 
-export function loadConfig(env: Env = process.env): Config {
+export function loadConfig(platformArg: string | undefined, env: Env = process.env): Config {
+  const platform = parsePlatform(platformArg);
+
   const rawgApiKey = env.RAWG_API_KEY;
   if (!rawgApiKey) {
     throw new Error('RAWG_API_KEY is missing. Add it to your .env file or repository secrets.');
   }
 
   return {
+    platform,
     rawgApiKey,
     recommendationMode: parseMode(env.RECOMMENDATION_MODE),
-    twitter: readGroup(env, {
+    twitter: platform === 'x' ? readGroup(env, {
       appKey: 'TWITTER_API_KEY',
       appSecret: 'TWITTER_API_SECRET',
       accessToken: 'TWITTER_ACCESS_TOKEN',
       accessSecret: 'TWITTER_ACCESS_SECRET',
-    }),
+    }) : undefined,
   };
+}
+
+function parsePlatform(value: string | undefined): Platform {
+  if (!value || !(PLATFORMS as readonly string[]).includes(value)) {
+    throw new Error(`Usage: npm start -- <platform>, where platform is one of: ${PLATFORMS.join(', ')}.`);
+  }
+  return value as Platform;
 }
 
 function parseMode(value: string | undefined): RecommendationMode | undefined {
@@ -46,7 +60,7 @@ function parseMode(value: string | undefined): RecommendationMode | undefined {
 }
 
 // Reads a group of variables that only make sense together. A partially set group is almost always
-// a typo in a secret name, so it fails instead of silently disabling the platform.
+// a typo in a secret name, so it fails instead of silently falling back to a dry run.
 function readGroup<K extends string>(env: Env, names: Record<K, string>): Record<K, string> | undefined {
   const keys = Object.keys(names) as K[];
   const missing = keys.filter(key => !env[names[key]]).map(key => names[key]);

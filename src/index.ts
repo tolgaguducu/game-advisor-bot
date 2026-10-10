@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import path from 'path';
 import { runBot } from './bot';
 import { Config, loadConfig } from './config/env';
 import { Publisher } from './publishers/publisher';
@@ -7,29 +8,30 @@ import { GameService, modeForDate } from './services/gameService';
 import { HistoryService } from './services/historyService';
 import { describeError } from './utils/errors';
 
-function createPublishers(config: Config): Publisher[] {
-  const publishers: Publisher[] = [];
-  if (config.twitter) publishers.push(new TwitterPublisher(config.twitter));
-  return publishers;
+function createPublisher(config: Config): Publisher | undefined {
+  switch (config.platform) {
+    case 'x':
+      return config.twitter && new TwitterPublisher(config.twitter);
+  }
 }
 
 async function main() {
   dotenv.config({ quiet: true });
-  const config = loadConfig();
-  const publishers = createPublishers(config);
+  const config = loadConfig(process.argv[2]);
+  const publisher = createPublisher(config);
 
-  if (publishers.length === 0 && process.env.CI) {
-    throw new Error('No publishing platform is configured. Add the API keys as repository secrets.');
+  if (!publisher && process.env.CI) {
+    throw new Error(`Credentials for ${config.platform} are missing. Add them as repository secrets.`);
   }
 
-  console.log('🎮 Game Recommendation Bot Starting...');
-  const history = new HistoryService();
+  console.log(`🎮 Game Recommendation Bot Starting (${config.platform})...`);
+  const history = new HistoryService(path.join(process.cwd(), 'data', 'history', `${config.platform}.json`));
   console.log(`📚 History contains ${history.count} games.`);
 
   await runBot({
     gameService: new GameService(config.rawgApiKey),
     history,
-    publishers,
+    publisher,
     mode: config.recommendationMode ?? modeForDate(new Date()),
   });
 }

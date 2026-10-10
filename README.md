@@ -8,8 +8,9 @@ A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) e
   - **Popular** (most days): critically acclaimed games (Metacritic 80+) that players also rate well.
   - **Hidden gem** (Wednesdays and Saturdays, UTC): highly rated by players (4.0+, at least 30 ratings) but outside the most popular games, excluding free-to-play titles. Falls back to a popular pick if none is found.
 - **Sensible filtering:** Games released since 2010 only. DLCs, adult-only titles, mobile-only games and games not sold in any store are skipped.
-- **No duplicates:** Every posted game is stored in `data/history.json`, which the workflow commits back to the repo.
-- **Rich posts:** Release date, Metacritic score, playtime, developer and platforms, with the game's cover image.
+- **Independent platforms:** Each platform has its own workflow, schedule and history, so one can fail or be disabled without affecting the others.
+- **No duplicates:** Every posted game is stored in `data/history/<platform>.json`, which the workflow commits back to the repo.
+- **Rich posts:** Release date, Metacritic score, playtime, developer and platforms, with the game's artwork.
 - **Fails loudly:** If posting fails, the run turns red and the game is *not* marked as used, so nothing is skipped silently.
 
 ## Requirements
@@ -41,16 +42,22 @@ The thresholds (minimum Metacritic score, hidden gem days, rating limits) are co
 ## Running locally
 
 ```bash
-npm start
+npm start -- x
 ```
 
-Without the X keys the bot runs in **dry-run mode**: it prints the post it would send and leaves `data/history.json` untouched. To start with a clean slate, replace the contents of `data/history.json` with `[]`.
+Without the platform's keys the bot runs in **dry-run mode**: it prints the post it would send and leaves the history untouched. To start with a clean slate, replace the contents of `data/history/<platform>.json` with `[]`.
 
 ## Deployment (GitHub Actions)
 
 1. Fork or push the repository to GitHub.
-2. Under **Settings → Secrets and variables → Actions**, add `RAWG_API_KEY`, `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_ACCESS_TOKEN` and `TWITTER_ACCESS_SECRET`.
-3. The workflow in `.github/workflows/daily-recommendation.yml` runs every day at 09:00 UTC. You can also start it manually from the **Actions** tab.
+2. Under **Settings → Secrets and variables → Actions**, add `RAWG_API_KEY` and the keys of the platforms you use.
+3. Each platform has its own workflow that runs on its own schedule and can also be started manually from the **Actions** tab:
+
+| Workflow | File | Schedule |
+| --- | --- | --- |
+| Post to X | `.github/workflows/post-x.yml` | Daily at 09:00 UTC |
+
+To stop posting to a platform, disable its workflow in the **Actions** tab (or delete its file). To change the time, edit the `cron` line in its file. The shared steps live in `.github/workflows/post.yml`.
 
 Notes:
 
@@ -66,17 +73,22 @@ npm run typecheck  # TypeScript type check
 
 ```
 src/
-├── index.ts            # Entry point: loads config, wires everything together
-├── bot.ts              # Picks a game, posts it everywhere, updates history
+├── index.ts            # Entry point: loads config for the given platform, wires everything together
+├── bot.ts              # Picks a game, posts it, updates history
 ├── post.ts             # Builds the platform-independent post text and image
-├── config/env.ts       # Reads and validates environment variables
+├── config/env.ts       # Reads and validates the platform argument and environment variables
 ├── services/
 │   ├── gameService.ts      # Game selection from RAWG (modes, thresholds, filters)
-│   └── historyService.ts   # data/history.json
+│   └── historyService.ts   # data/history/<platform>.json
 ├── publishers/
 │   ├── publisher.ts        # Interface every platform implements
 │   └── twitterPublisher.ts
 └── utils/              # Error formatting, image download
 ```
 
-To add a platform, implement `Publisher` in `src/publishers/`, read its credentials in `src/config/env.ts` and register it in `createPublishers` in `src/index.ts`.
+To add a platform:
+
+1. Implement `Publisher` in `src/publishers/`.
+2. Add it to `PLATFORMS` and read its credentials in `src/config/env.ts`.
+3. Create it in `createPublisher` in `src/index.ts`.
+4. Add a `.github/workflows/post-<platform>.yml` like `post-x.yml` and pass its secrets in `post.yml`.

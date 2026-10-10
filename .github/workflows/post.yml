@@ -1,22 +1,26 @@
-name: Daily Game Recommendation
+name: Post Recommendation
 
+# Shared steps for every platform. Each platform has its own small workflow (post-<platform>.yml)
+# with its own schedule that calls this one, so platforms run, fail and can be disabled independently.
 on:
-  schedule:
-    # Runs at 09:00 UTC everyday (12:00 TRT). GitHub may start scheduled runs a few hours late.
-    - cron: "0 9 * * *"
-  workflow_dispatch: # Allows manual trigger from GitHub UI
-
-permissions:
-  contents: write
-
-# Never run two recommendations at once, they would race on data/history.json.
-concurrency:
-  group: daily-recommendation
-  cancel-in-progress: false
+  workflow_call:
+    inputs:
+      platform:
+        description: Platform to post to (x, bluesky)
+        required: true
+        type: string
 
 jobs:
-  recommend-game:
+  post:
     runs-on: ubuntu-latest
+
+    # Never run two posts for the same platform at once, they would race on its history file.
+    concurrency:
+      group: post-${{ inputs.platform }}
+      cancel-in-progress: false
+
+    env:
+      PLATFORM: ${{ inputs.platform }}
 
     steps:
       - name: Checkout code
@@ -40,28 +44,25 @@ jobs:
           npm test
 
       - name: Run Recommendation Bot
-        id: bot
         env:
           RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
           TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
           TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
           TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
-        run: npm start
+        run: npm start -- "$PLATFORM"
 
       - name: Commit History Update
-        # Commits the updated history.json back to the repo so we don't recommend the same game again.
-        # Also runs when the bot failed on some platforms, since the game may have reached the others.
-        if: ${{ !cancelled() && steps.bot.conclusion != 'skipped' }}
+        # Commits the platform's history file back to the repo so we don't recommend the same game again
         run: |
           git config --global user.name 'GameBot'
           git config --global user.email 'bot@noreply.github.com'
-          git add data/history.json
+          git add data/history
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "Update game history [skip ci]"
-          # Rebase in case main moved since checkout (e.g. a re-run of an older run)
+          git commit -m "Update $PLATFORM history [skip ci]"
+          # Rebase in case main moved since checkout (e.g. the other platform posted meanwhile)
           git pull --rebase
           git push

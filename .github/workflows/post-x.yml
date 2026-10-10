@@ -1,0 +1,17 @@
+name: Post to X
+
+on:
+  schedule:
+    # 09:00 UTC (12:00 TRT). GitHub may start scheduled runs a few hours late.
+    - cron: "0 9 * * *"
+  workflow_dispatch: # Allows manual trigger from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  post:
+    uses: ./.github/workflows/post.yml
+    with:
+      platform: x
+    secrets: inherit

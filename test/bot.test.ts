@@ -12,59 +12,49 @@ beforeEach(() => {
   }
 });
 
-function setup(publishers: Publisher[], game: Game | null = makeGame({ id: 42 })) {
+function setup(publisher?: Publisher, game: Game | null = makeGame({ id: 42 })) {
   const added: number[] = [];
   const options: BotOptions = {
     gameService: { getRandomGame: async () => game },
     history: { has: () => false, add: id => { added.push(id); } },
-    publishers,
+    publisher,
     mode: 'popular',
   };
   return { options, added };
 }
 
-function publisher(name: string, fails = false): Publisher & { posts: string[] } {
+function publisher(fails = false): Publisher & { posts: string[] } {
   const posts: string[] = [];
   return {
-    name,
+    name: 'X',
     posts,
     async publish(post) {
-      if (fails) throw new Error(`${name} is down`);
+      if (fails) throw new Error('X is down');
       posts.push(post.text);
     },
   };
 }
 
-test('posts to every publisher and records the game', async () => {
-  const x = publisher('X');
-  const bluesky = publisher('Bluesky');
-  const { options, added } = setup([x, bluesky]);
+test('posts the game and records it', async () => {
+  const x = publisher();
+  const { options, added } = setup(x);
 
   await runBot(options);
 
   assert.equal(x.posts.length, 1);
-  assert.equal(bluesky.posts.length, 1);
+  assert.match(x.posts[0], /Daily Game Recommendation: Celeste/);
   assert.deepEqual(added, [42]);
 });
 
-test('fails without recording the game when posting fails everywhere', async () => {
-  const { options, added } = setup([publisher('X', true)]);
+test('fails without recording the game when posting fails', async () => {
+  const { options, added } = setup(publisher(true));
 
-  await assert.rejects(runBot(options), /Posting failed on: X/);
+  await assert.rejects(runBot(options), /X is down/);
   assert.deepEqual(added, []);
 });
 
-test('records the game but still fails when only some publishers fail', async () => {
-  const bluesky = publisher('Bluesky');
-  const { options, added } = setup([publisher('X', true), bluesky]);
-
-  await assert.rejects(runBot(options), /Posting failed on: X$/);
-  assert.equal(bluesky.posts.length, 1);
-  assert.deepEqual(added, [42]);
-});
-
 test('dry run leaves the history untouched', async () => {
-  const { options, added } = setup([]);
+  const { options, added } = setup(undefined);
 
   await runBot(options);
 
@@ -72,8 +62,8 @@ test('dry run leaves the history untouched', async () => {
 });
 
 test('fails when no game is found', async () => {
-  const x = publisher('X');
-  const { options } = setup([x], null);
+  const x = publisher();
+  const { options } = setup(x, null);
 
   await assert.rejects(runBot(options), /Failed to find a game/);
   assert.equal(x.posts.length, 0);
