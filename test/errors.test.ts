@@ -24,3 +24,17 @@ test('describes X API errors with the response body', () => {
 
   assert.equal(describeError(error), '402 Payment Required - credits depleted');
 });
+
+test('describes Bluesky errors with status and error name', () => {
+  class XRPCError extends Error {
+    status = 401;
+    error = 'AuthenticationRequired';
+  }
+
+  assert.equal(describeError(new XRPCError('Invalid identifier or password')), '401 AuthenticationRequired - Invalid identifier or password');
+});
+
+test('keeps the stack for unexpected errors only', () => {
+  assert.equal(describeError(new Error('Readable message')), 'Readable message');
+  assert.match(describeError(new TypeError('x is undefined')), /^TypeError: x is undefined\n\s+at /);
+});

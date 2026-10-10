@@ -1,6 +1,6 @@
 # 🎮 Daily Game Recommendation Bot
 
-A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) every day and posts it to X (Twitter), running for free on GitHub Actions.
+A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) every day and posts it to X (Twitter) and/or Bluesky, running for free on GitHub Actions.
 
 ## Features
 
@@ -17,7 +17,8 @@ A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) e
 
 - Node.js 22+
 - A RAWG API key ([rawg.io/apidocs](https://rawg.io/apidocs))
-- An X developer app with **Read and Write** permissions and credits on your account
+- For X: a developer app with **Read and Write** permissions and credits on your account
+- For Bluesky: an account and an [app password](https://bsky.app/settings/app-passwords) (free)
 
 > **X API costs:** The X API is pay-per-use. Posting needs prepaid credits in the [X Developer Console](https://console.x.com) (one post is roughly $0.015, plus media upload). When credits run out, the API returns `402 credits depleted` and the workflow run fails.
 
@@ -35,6 +36,8 @@ cp .env.example .env   # then fill in your keys
 | `RAWG_API_KEY` | RAWG API key (required) |
 | `TWITTER_API_KEY` / `TWITTER_API_SECRET` | App's API key and secret (consumer keys) |
 | `TWITTER_ACCESS_TOKEN` / `TWITTER_ACCESS_SECRET` | Access token and secret for the posting account (generate them *after* enabling Read and Write) |
+| `BLUESKY_IDENTIFIER` | Bluesky handle without `@` (e.g. `name.bsky.social`) |
+| `BLUESKY_APP_PASSWORD` | App password from **Settings → Privacy and Security → App Passwords** (not your account password) |
 | `RECOMMENDATION_MODE` | Optional: `popular` or `hidden-gem` to override the day's mode |
 
 The thresholds (minimum Metacritic score, hidden gem days, rating limits) are constants at the top of `src/services/gameService.ts`.
@@ -42,7 +45,7 @@ The thresholds (minimum Metacritic score, hidden gem days, rating limits) are co
 ## Running locally
 
 ```bash
-npm start -- x
+npm start -- x         # or: npm start -- bluesky
 ```
 
 Without the platform's keys the bot runs in **dry-run mode**: it prints the post it would send and leaves the history untouched. To start with a clean slate, replace the contents of `data/history/<platform>.json` with `[]`.
@@ -56,8 +59,9 @@ Without the platform's keys the bot runs in **dry-run mode**: it prints the post
 | Workflow | File | Schedule |
 | --- | --- | --- |
 | Post to X | `.github/workflows/post-x.yml` | Daily at 09:00 UTC |
+| Post to Bluesky | `.github/workflows/post-bluesky.yml` | Daily at 10:00 UTC |
 
-To stop posting to a platform, disable its workflow in the **Actions** tab (or delete its file). To change the time, edit the `cron` line in its file. The shared steps live in `.github/workflows/post.yml`.
+Platforms are independent: they pick their own games and keep their own history. To use only one platform, add only its secrets and disable (or delete) the other workflow. To stop posting to a platform, disable its workflow in the **Actions** tab (or delete its file). To change the time, edit the `cron` line in its file. The shared steps live in `.github/workflows/post.yml`.
 
 Notes:
 
@@ -82,7 +86,8 @@ src/
 │   └── historyService.ts   # data/history/<platform>.json
 ├── publishers/
 │   ├── publisher.ts        # Interface every platform implements
-│   └── twitterPublisher.ts
+│   ├── twitterPublisher.ts
+│   └── blueskyPublisher.ts
 └── utils/              # Error formatting, image download
 ```
 

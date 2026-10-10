@@ -3,6 +3,7 @@ import path from 'path';
 import { runBot } from './bot';
 import { Config, loadConfig } from './config/env';
 import { Publisher } from './publishers/publisher';
+import { BlueskyPublisher } from './publishers/blueskyPublisher';
 import { TwitterPublisher } from './publishers/twitterPublisher';
 import { GameService, modeForDate } from './services/gameService';
 import { HistoryService } from './services/historyService';
@@ -12,6 +13,8 @@ function createPublisher(config: Config): Publisher | undefined {
   switch (config.platform) {
     case 'x':
       return config.twitter && new TwitterPublisher(config.twitter);
+    case 'bluesky':
+      return config.bluesky && new BlueskyPublisher(config.bluesky);
   }
 }
 

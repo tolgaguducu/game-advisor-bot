@@ -1,0 +1,17 @@
+name: Post to Bluesky
+
+on:
+  schedule:
+    # 10:00 UTC (13:00 TRT). GitHub may start scheduled runs a few hours late.
+    - cron: "0 10 * * *"
+  workflow_dispatch: # Allows manual trigger from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  post:
+    uses: ./.github/workflows/post.yml
+    with:
+      platform: bluesky
+    secrets: inherit

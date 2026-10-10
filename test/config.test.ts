@@ -39,6 +39,23 @@ test('fails when X credentials are only partially set', () => {
   );
 });
 
+test('reads only the selected platform credentials', () => {
+  const env = { ...rawgEnv, ...twitterEnv, BLUESKY_IDENTIFIER: 'bot.bsky.social', BLUESKY_APP_PASSWORD: 'app-pass' };
+
+  const bluesky = loadConfig('bluesky', env);
+  assert.deepEqual(bluesky.bluesky, { identifier: 'bot.bsky.social', appPassword: 'app-pass' });
+  assert.equal(bluesky.twitter, undefined);
+
+  assert.equal(loadConfig('x', env).bluesky, undefined);
+});
+
+test('a broken config for one platform does not affect the other', () => {
+  const env = { ...rawgEnv, ...twitterEnv, BLUESKY_IDENTIFIER: 'bot.bsky.social' };
+
+  assert.throws(() => loadConfig('bluesky', env), /Missing BLUESKY_APP_PASSWORD/);
+  assert.ok(loadConfig('x', env).twitter);
+});
+
 test('validates RECOMMENDATION_MODE', () => {
   assert.equal(loadConfig('x', { ...rawgEnv, RECOMMENDATION_MODE: 'hidden-gem' }).recommendationMode, 'hidden-gem');
   assert.throws(() => loadConfig('x', { ...rawgEnv, RECOMMENDATION_MODE: 'foo' }), /Unknown RECOMMENDATION_MODE/);

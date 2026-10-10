@@ -17,6 +17,12 @@ export function describeError(error: unknown): string {
     return `${apiError.code} ${title ?? ''}${detail ? ` - ${detail}` : ''}`.trim();
   }
 
+  // Bluesky (XRPC) errors carry the HTTP status and an error name (e.g. "AuthenticationRequired").
+  const xrpcError = error as { status?: unknown; error?: unknown; message?: string };
+  if (typeof xrpcError.status === 'number' && typeof xrpcError.error === 'string') {
+    return `${xrpcError.status} ${xrpcError.error} - ${xrpcError.message}`;
+  }
+
   // Plain Errors are thrown deliberately with a readable message. Anything else (TypeError, ...) is a bug and needs the stack.
   if (error instanceof Error) {
     return error.constructor === Error ? error.message : (error.stack ?? error.message);

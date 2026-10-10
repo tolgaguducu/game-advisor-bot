@@ -1,6 +1,6 @@
 import { RECOMMENDATION_MODES, RecommendationMode } from '../services/gameService';
 
-export const PLATFORMS = ['x'] as const;
+export const PLATFORMS = ['x', 'bluesky'] as const;
 export type Platform = typeof PLATFORMS[number];
 
 export interface TwitterCredentials {
@@ -10,6 +10,13 @@ export interface TwitterCredentials {
   accessSecret: string;
 }
 
+export interface BlueskyCredentials {
+  /** Handle (e.g. name.bsky.social) or email */
+  identifier: string;
+  /** App password from Settings → Privacy and Security → App Passwords, not the account password */
+  appPassword: string;
+}
+
 export interface Config {
   platform: Platform;
   rawgApiKey: string;
@@ -17,6 +24,7 @@ export interface Config {
   recommendationMode?: RecommendationMode;
   /** Only read for the selected platform. Undefined when not configured, which means dry run. */
   twitter?: TwitterCredentials;
+  bluesky?: BlueskyCredentials;
 }
 
 type Env = Record<string, string | undefined>;
@@ -38,6 +46,10 @@ export function loadConfig(platformArg: string | undefined, env: Env = process.e
       appSecret: 'TWITTER_API_SECRET',
       accessToken: 'TWITTER_ACCESS_TOKEN',
       accessSecret: 'TWITTER_ACCESS_SECRET',
+    }) : undefined,
+    bluesky: platform === 'bluesky' ? readGroup(env, {
+      identifier: 'BLUESKY_IDENTIFIER',
+      appPassword: 'BLUESKY_APP_PASSWORD',
     }) : undefined,
   };
 }
