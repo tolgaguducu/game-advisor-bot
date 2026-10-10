@@ -13,10 +13,11 @@ export interface BotOptions {
 
 export async function runBot({ gameService, history, publisher, mode }: BotOptions): Promise<void> {
   console.log(`Fetching a ${mode} game recommendation...`);
-  const game = await gameService.getRandomGame(history, mode);
-  if (!game) {
+  const recommendation = await gameService.getRandomGame(history, mode);
+  if (!recommendation) {
     throw new Error('Failed to find a game to recommend.');
   }
+  const { game } = recommendation;
 
   console.log('\n--------------------------------------------------');
   console.log(`🎲 Recommended Game: ${game.name}`);
@@ -24,7 +25,7 @@ export async function runBot({ gameService, history, publisher, mode }: BotOptio
   console.log(`🎭 Genre: ${game.genres.map(g => g.name).join(', ')}`);
   console.log('--------------------------------------------------\n');
 
-  const post = formatPost(game);
+  const post = formatPost(game, recommendation.mode);
 
   if (!publisher) {
     console.warn('⚠️  Credentials are missing. Running in DRY RUN mode, history will not be updated.');

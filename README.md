@@ -8,9 +8,20 @@ A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) e
   - **Popular** (most days): critically acclaimed games (Metacritic 80+) that players also rate well.
   - **Hidden gem** (Wednesdays and Saturdays, UTC): highly rated by players (4.0+, at least 30 ratings) but outside the most popular games, excluding free-to-play titles. Falls back to a popular pick if none is found.
 - **Sensible filtering:** Games released since 2010 only. DLCs, adult-only titles, mobile-only games and games not sold in any store are skipped.
+- **Blocked companies:** Games developed or published by companies in `BLOCKED_COMPANIES` (`src/services/gameService.ts`) are never recommended. Currently: Paradox Interactive and its studios.
 - **Independent platforms:** Each platform has its own workflow, schedule and history, so one can fail or be disabled without affecting the others.
 - **No duplicates:** Every posted game is stored in `data/history/<platform>.json`, which the workflow commits back to the repo.
-- **Rich posts:** Release date, Metacritic score, playtime, developer and platforms, with the game's artwork.
+- **Rich posts:** Labelled as "Game of the Day" or "Hidden Gem", with release year, Metacritic score, playtime, developer, main platforms, hashtags picked from the game's genres and tags, and the game's artwork:
+
+  ```
+  🎮 Game of the Day: Metro Exodus (2019)
+
+  ⭐️ Metacritic 81 · ⏱️ 6 hours
+  👨‍💻 4A Games
+  🕹️ PC, PlayStation 5, PlayStation 4
+
+  #HorrorGame #Shooter #OyunumaDokunma
+  ```
 - **Fails loudly:** If posting fails, the run turns red and the game is *not* marked as used, so nothing is skipped silently.
 
 ## Requirements

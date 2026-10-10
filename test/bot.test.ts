@@ -15,7 +15,7 @@ beforeEach(() => {
 function setup(publisher?: Publisher, game: Game | null = makeGame({ id: 42 })) {
   const added: number[] = [];
   const options: BotOptions = {
-    gameService: { getRandomGame: async () => game },
+    gameService: { getRandomGame: async () => game && { game, mode: 'popular' } },
     history: { has: () => false, add: id => { added.push(id); } },
     publisher,
     mode: 'popular',
@@ -42,7 +42,7 @@ test('posts the game and records it', async () => {
   await runBot(options);
 
   assert.equal(x.posts.length, 1);
-  assert.match(x.posts[0], /Daily Game Recommendation: Celeste/);
+  assert.match(x.posts[0], /Game of the Day: Celeste/);
   assert.deepEqual(added, [42]);
 });
 

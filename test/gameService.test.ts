@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { isSuitable, modeForDate } from '../src/services/gameService';
+import { isBlocked, isSuitable, modeForDate } from '../src/services/gameService';
 import { makeGame } from './fixtures';
 
 test('picks hidden gems on Wednesdays and Saturdays (UTC)', () => {
@@ -26,6 +26,15 @@ test('rejects mobile-only games but keeps games that are also on other platforms
 
   assert.equal(isSuitable(makeGame({ platforms: [ios, android] })), false);
   assert.equal(isSuitable(makeGame({ platforms: [ios, pc] })), true);
+});
+
+test('blocks games developed or published by blocked companies', () => {
+  const company = (slug: string) => ({ id: 0, name: slug, slug });
+
+  assert.equal(isBlocked(makeGame({ developers: [company('paradox-development-studio')] })), true);
+  assert.equal(isBlocked(makeGame({ developers: [company('colossal-order')], publishers: [company('paradox-interactive')] })), true);
+  assert.equal(isBlocked(makeGame({ developers: [company('paradox-entertainment')], publishers: [company('funcom')] })), false);
+  assert.equal(isBlocked(makeGame()), false);
 });
 
 test('rejects games without stores or genres', () => {

@@ -21,6 +21,20 @@ const HIDDEN_GEM_PAGES = { min: 20, max: 250 };
 const EXCLUDED_TAGS = ['sexual-content', 'hentai', 'nsfw'];
 const MOBILE_PLATFORMS = ['ios', 'android'];
 
+// RAWG slugs of companies whose games (developed or published) are never recommended.
+// Exact slugs, since unrelated studios share names (e.g. "Paradox Entertainment" is a different company).
+const BLOCKED_COMPANIES = [
+  // Paradox Interactive, its publishing label and its studios (boycott since September 2026)
+  'paradox-interactive',
+  'paradox-arc',
+  'paradox-development-studio',
+  'paradox-developement-studios',
+  'paradox-tinto',
+  'paradox-arctic',
+  'paradox-north',
+  'paradox-north-ab',
+];
+
 export const RECOMMENDATION_MODES = ['popular', 'hidden-gem'] as const;
 export type RecommendationMode = typeof RECOMMENDATION_MODES[number];
 
@@ -51,6 +65,12 @@ const STRATEGIES: Record<RecommendationMode, Strategy> = {
 
 type History = { has: (id: number) => boolean };
 
+export interface Recommendation {
+  game: Game;
+  /** The mode the game was actually found with, which differs from the requested one after a fallback. */
+  mode: RecommendationMode;
+}
+
 export class GameService {
   private readonly rawg: AxiosInstance;
 
@@ -58,14 +78,18 @@ export class GameService {
     this.rawg = axios.create({ baseURL: RAWG_BASE_URL, params: { key: apiKey } });
   }
 
-  async getRandomGame(history: History, mode: RecommendationMode): Promise<Game | null> {
+  async getRandomGame(history: History, mode: RecommendationMode): Promise<Recommendation | null> {
     const game = await this.findGame(STRATEGIES[mode], history);
-    if (game || mode === 'popular') {
-      return game;
+    if (game) {
+      return { game, mode };
+    }
+    if (mode === 'popular') {
+      return null;
     }
 
     console.log('No hidden gem found, falling back to a popular game...');
-    return this.findGame(STRATEGIES['popular'], history);
+    const fallback = await this.findGame(STRATEGIES['popular'], history);
+    return fallback && { game: fallback, mode: 'popular' };
   }
 
   private async findGame(strategy: Strategy, history: History): Promise<Game | null> {
@@ -84,11 +108,15 @@ export class GameService {
           continue;
         }
 
+        // Developers and publishers are only part of the details response.
         const details = await this.getGameDetails(candidate.id);
-        if (details?.description_raw) {
+        if (!details?.description_raw) {
+          console.log(`Skipping ${candidate.name} due to missing description...`);
+        } else if (isBlocked(details)) {
+          console.log(`Skipping ${candidate.name} (blocked company)...`);
+        } else {
           return details;
         }
-        console.log(`Skipping ${candidate.name} due to missing description...`);
       }
       console.log(`No suitable game on page ${page} (attempt ${attempt}/${MAX_ATTEMPTS})...`);
     }
@@ -134,6 +162,10 @@ export function isSuitable(game: Game): boolean {
   if (game.genres.length === 0) return false;
   if (!game.platforms?.some(p => !MOBILE_PLATFORMS.includes(p.platform.slug))) return false;
   return (game.stores?.length ?? 0) > 0;
+}
+
+export function isBlocked(game: Game): boolean {
+  return [...(game.developers ?? []), ...(game.publishers ?? [])].some(company => BLOCKED_COMPANIES.includes(company.slug));
 }
 
 function shuffle<T>(items: T[]): T[] {

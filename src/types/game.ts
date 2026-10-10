@@ -14,7 +14,8 @@ export interface Game {
   metacritic?: number;
   playtime?: number;
   platforms?: { platform: Platform }[];
-  developers?: Developer[];
+  developers?: Company[];
+  publishers?: Company[];
 }
 
 export interface Genre {
@@ -35,7 +36,7 @@ export interface Platform {
   slug: string;
 }
 
-export interface Developer {
+export interface Company {
   id: number;
   name: string;
   slug: string;
