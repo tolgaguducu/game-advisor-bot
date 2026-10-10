@@ -5,7 +5,11 @@ export interface Game {
   released: string;
   background_image: string;
   rating: number;
+  ratings_count?: number;
   genres: Genre[];
+  tags?: Tag[];
+  stores?: { store: { id: number; name: string } }[];
+  esrb_rating?: { slug: string } | null;
   description_raw?: string;
   metacritic?: number;
   playtime?: number;
@@ -14,6 +18,12 @@ export interface Game {
 }
 
 export interface Genre {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export interface Tag {
   id: number;
   name: string;
   slug: string;

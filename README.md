@@ -4,7 +4,10 @@ A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) e
 
 ## Features
 
-- **Daily recommendations:** Picks a random, highly-rated game released since 2015 (up to today).
+- **Two kinds of picks:**
+  - **Popular** (most days): critically acclaimed games (Metacritic 80+) that players also rate well.
+  - **Hidden gem** (Wednesdays and Saturdays, UTC): highly rated by players (4.0+, at least 30 ratings) but outside the most popular games, excluding free-to-play titles. Falls back to a popular pick if none is found.
+- **Sensible filtering:** Games released since 2010 only. DLCs, adult-only titles, mobile-only games and games not sold in any store are skipped.
 - **No duplicates:** Every posted game is stored in `data/history.json`, which the workflow commits back to the repo.
 - **Rich posts:** Release date, Metacritic score, playtime, developer and platforms, with the game's cover image.
 - **Fails loudly:** If posting fails, the run turns red and the game is *not* marked as used, so nothing is skipped silently.
@@ -31,6 +34,9 @@ cp .env.example .env   # then fill in your keys
 | `RAWG_API_KEY` | RAWG API key (required) |
 | `TWITTER_API_KEY` / `TWITTER_API_SECRET` | App's API key and secret (consumer keys) |
 | `TWITTER_ACCESS_TOKEN` / `TWITTER_ACCESS_SECRET` | Access token and secret for the posting account (generate them *after* enabling Read and Write) |
+| `RECOMMENDATION_MODE` | Optional: `popular` or `hidden-gem` to override the day's mode |
+
+The thresholds (minimum Metacritic score, hidden gem days, rating limits) are constants at the top of `src/services/gameService.ts`.
 
 ## Running locally
 
