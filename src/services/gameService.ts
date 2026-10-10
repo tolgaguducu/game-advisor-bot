@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { Game } from '../types/game';
 import { describeError } from '../utils/errors';
 
@@ -6,6 +6,10 @@ const RAWG_BASE_URL = 'https://api.rawg.io/api';
 const RELEASED_AFTER = '2010-01-01';
 const PAGE_SIZE = 40;
 const MAX_ATTEMPTS = 8;
+
+// RAWG sits behind Cloudflare and sometimes answers 5xx for a minute or so. Retrying is better than a failed day.
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 20_000; // multiplied by the retry number: 20s, 40s, 60s
 
 // Popular days: critically acclaimed games that players also liked, ordered by how many RAWG users have them.
 const MIN_METACRITIC = 80;
@@ -74,8 +78,28 @@ export interface Recommendation {
 export class GameService {
   private readonly rawg: AxiosInstance;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, private readonly retryDelayMs = RETRY_DELAY_MS) {
     this.rawg = axios.create({ baseURL: RAWG_BASE_URL, params: { key: apiKey } });
+    this.rawg.interceptors.response.use(undefined, error => this.retry(error));
+  }
+
+  private async retry(error: unknown) {
+    if (!axios.isAxiosError(error) || !error.config) {
+      throw error;
+    }
+    const status = error.response?.status;
+    const retryable = status === undefined || status === 429 || status >= 500;
+    const config: InternalAxiosRequestConfig & { retryCount?: number } = error.config;
+    const retry = (config.retryCount ?? 0) + 1;
+    if (!retryable || retry > MAX_RETRIES) {
+      throw error;
+    }
+
+    config.retryCount = retry;
+    const delay = this.retryDelayMs * retry;
+    console.warn(`⚠️  ${describeError(error)}, retrying in ${delay / 1000}s (${retry}/${MAX_RETRIES})...`);
+    await new Promise(resolve => setTimeout(resolve, delay));
+    return this.rawg.request(config);
   }
 
   async getRandomGame(history: History, mode: RecommendationMode): Promise<Recommendation | null> {

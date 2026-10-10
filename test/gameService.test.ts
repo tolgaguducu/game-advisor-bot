@@ -1,7 +1,49 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
-import { isBlocked, isSuitable, modeForDate } from '../src/services/gameService';
+import { mock, test } from 'node:test';
+import { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import { GameService, isBlocked, isSuitable, modeForDate } from '../src/services/gameService';
 import { makeGame } from './fixtures';
+
+// Answers RAWG requests with the given statuses in order; 200 returns { ok: true }.
+function rawgReturning(statuses: number[]) {
+  const service = new GameService('KEY', 0);
+  const rawg = (service as unknown as { rawg: AxiosInstance }).rawg;
+  let calls = 0;
+  rawg.defaults.adapter = async (config: InternalAxiosRequestConfig) => {
+    const status = statuses[Math.min(calls++, statuses.length - 1)];
+    const response = { status, statusText: '', headers: {}, config, data: { ok: true } };
+    if (status !== 200) {
+      throw new AxiosError(`Request failed with status code ${status}`, 'ERR_BAD_RESPONSE', config, undefined, response);
+    }
+    return response;
+  };
+  return { rawg, calls: () => calls };
+}
+
+test('retries RAWG server errors', async () => {
+  mock.method(console, 'warn', () => {});
+  const { rawg, calls } = rawgReturning([502, 503, 200]);
+
+  const response = await rawg.get('/games');
+
+  assert.deepEqual(response.data, { ok: true });
+  assert.equal(calls(), 3);
+});
+
+test('gives up after three retries', async () => {
+  mock.method(console, 'warn', () => {});
+  const { rawg, calls } = rawgReturning([502]);
+
+  await assert.rejects(rawg.get('/games'), (error: AxiosError) => error.response?.status === 502);
+  assert.equal(calls(), 4);
+});
+
+test('does not retry client errors', async () => {
+  const { rawg, calls } = rawgReturning([404]);
+
+  await assert.rejects(rawg.get('/games/1'));
+  assert.equal(calls(), 1);
+});
 
 test('picks hidden gems on Wednesdays and Saturdays (UTC)', () => {
   assert.equal(modeForDate(new Date('2026-10-05T09:00:00Z')), 'popular'); // Monday
