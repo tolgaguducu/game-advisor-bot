@@ -34,7 +34,13 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Typecheck and Test
+        run: |
+          npm run typecheck
+          npm test
+
       - name: Run Recommendation Bot
+        id: bot
         env:
           RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
@@ -44,7 +50,9 @@ jobs:
         run: npm start
 
       - name: Commit History Update
-        # Commits the updated history.json back to the repo so we don't recommend the same game again
+        # Commits the updated history.json back to the repo so we don't recommend the same game again.
+        # Also runs when the bot failed on some platforms, since the game may have reached the others.
+        if: ${{ !cancelled() && steps.bot.conclusion != 'skipped' }}
         run: |
           git config --global user.name 'GameBot'
           git config --global user.email 'bot@noreply.github.com'

@@ -3,7 +3,7 @@ export interface Game {
   name: string;
   slug: string;
   released: string;
-  background_image: string;
+  background_image: string | null;
   rating: number;
   ratings_count?: number;
   genres: Genre[];

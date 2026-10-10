@@ -14,7 +14,7 @@ A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) e
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 22+
 - A RAWG API key ([rawg.io/apidocs](https://rawg.io/apidocs))
 - An X developer app with **Read and Write** permissions and credits on your account
 
@@ -56,3 +56,27 @@ Notes:
 
 - GitHub can start scheduled runs a few hours late, and it disables schedules in repositories with no activity for 60 days.
 - If a run fails, open the **Run Recommendation Bot** step to see the error returned by the API.
+
+## Development
+
+```bash
+npm test           # unit tests (Node's built-in test runner)
+npm run typecheck  # TypeScript type check
+```
+
+```
+src/
+├── index.ts            # Entry point: loads config, wires everything together
+├── bot.ts              # Picks a game, posts it everywhere, updates history
+├── post.ts             # Builds the platform-independent post text and image
+├── config/env.ts       # Reads and validates environment variables
+├── services/
+│   ├── gameService.ts      # Game selection from RAWG (modes, thresholds, filters)
+│   └── historyService.ts   # data/history.json
+├── publishers/
+│   ├── publisher.ts        # Interface every platform implements
+│   └── twitterPublisher.ts
+└── utils/              # Error formatting, image download
+```
+
+To add a platform, implement `Publisher` in `src/publishers/`, read its credentials in `src/config/env.ts` and register it in `createPublishers` in `src/index.ts`.

@@ -1,33 +1,31 @@
 import fs from 'fs';
 import path from 'path';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
+const DEFAULT_HISTORY_FILE = path.join(process.cwd(), 'data', 'history.json');
 
 export class HistoryService {
-  private history: Set<number>;
+  private history = new Set<number>();
 
-  constructor() {
-    this.history = new Set();
+  constructor(private readonly file: string = DEFAULT_HISTORY_FILE) {
     this.load();
   }
 
   // Throws on a corrupt file instead of starting empty, which would overwrite the history on the next save.
   private load() {
-    if (!fs.existsSync(HISTORY_FILE)) {
+    if (!fs.existsSync(this.file)) {
       return;
     }
 
-    const ids = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf-8'));
+    const ids = JSON.parse(fs.readFileSync(this.file, 'utf-8'));
     if (!Array.isArray(ids)) {
-      throw new Error(`${HISTORY_FILE} must contain a JSON array of game IDs.`);
+      throw new Error(`${this.file} must contain a JSON array of game IDs.`);
     }
     this.history = new Set(ids);
   }
 
   private save() {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(Array.from(this.history), null, 2));
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    fs.writeFileSync(this.file, JSON.stringify(Array.from(this.history), null, 2));
   }
 
   has(gameId: number): boolean {

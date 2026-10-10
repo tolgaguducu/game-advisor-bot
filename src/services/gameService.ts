@@ -1,6 +1,6 @@
-import axios from 'axios';
-import { config } from '../config/env';
+import axios, { AxiosInstance } from 'axios';
 import { Game } from '../types/game';
+import { describeError } from '../utils/errors';
 
 const RAWG_BASE_URL = 'https://api.rawg.io/api';
 const RELEASED_AFTER = '2010-01-01';
@@ -21,7 +21,8 @@ const HIDDEN_GEM_PAGES = { min: 20, max: 250 };
 const EXCLUDED_TAGS = ['sexual-content', 'hentai', 'nsfw'];
 const MOBILE_PLATFORMS = ['ios', 'android'];
 
-export type RecommendationMode = 'popular' | 'hidden-gem';
+export const RECOMMENDATION_MODES = ['popular', 'hidden-gem'] as const;
+export type RecommendationMode = typeof RECOMMENDATION_MODES[number];
 
 interface Strategy {
   params: Record<string, string>;
@@ -51,29 +52,25 @@ const STRATEGIES: Record<RecommendationMode, Strategy> = {
 type History = { has: (id: number) => boolean };
 
 export class GameService {
-  private apiKey: string;
+  private readonly rawg: AxiosInstance;
 
-  constructor() {
-    if (!config.rawgApiKey) {
-      throw new Error('RAWG_API_KEY is missing. Add it to your .env file or repository secrets.');
-    }
-    this.apiKey = config.rawgApiKey;
+  constructor(apiKey: string) {
+    this.rawg = axios.create({ baseURL: RAWG_BASE_URL, params: { key: apiKey } });
   }
 
-  async getRandomGame(historyService?: History, mode: RecommendationMode = todaysMode()): Promise<Game | null> {
-    console.log(`🎯 Mode: ${mode}`);
-    const game = await this.findGame(STRATEGIES[mode], historyService);
+  async getRandomGame(history: History, mode: RecommendationMode): Promise<Game | null> {
+    const game = await this.findGame(STRATEGIES[mode], history);
     if (game || mode === 'popular') {
       return game;
     }
 
     console.log('No hidden gem found, falling back to a popular game...');
-    return this.findGame(STRATEGIES['popular'], historyService);
+    return this.findGame(STRATEGIES['popular'], history);
   }
 
-  private async findGame(strategy: Strategy, historyService?: History): Promise<Game | null> {
-    const total = await this.listGames(strategy, 1, 1);
-    const lastPage = Math.min(strategy.pages.max, Math.ceil(total.count / PAGE_SIZE));
+  private async findGame(strategy: Strategy, history: History): Promise<Game | null> {
+    const { count } = await this.listGames(strategy, 1, 1);
+    const lastPage = Math.min(strategy.pages.max, Math.ceil(count / PAGE_SIZE));
     const firstPage = Math.min(strategy.pages.min, lastPage);
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -82,13 +79,13 @@ export class GameService {
 
       const candidates = shuffle(results).filter(game => isSuitable(game) && strategy.accepts(game));
       for (const candidate of candidates) {
-        if (historyService && historyService.has(candidate.id)) {
+        if (history.has(candidate.id)) {
           console.log(`Skipping ${candidate.name} (already recommended)...`);
           continue;
         }
 
         const details = await this.getGameDetails(candidate.id);
-        if (details && details.description_raw) {
+        if (details?.description_raw) {
           return details;
         }
         console.log(`Skipping ${candidate.name} due to missing description...`);
@@ -101,49 +98,37 @@ export class GameService {
 
   private async listGames(strategy: Strategy, page: number, pageSize: number): Promise<{ count: number; results: Game[] }> {
     const today = new Date().toISOString().slice(0, 10);
-    const response = await axios.get(`${RAWG_BASE_URL}/games`, {
+    const response = await this.rawg.get('/games', {
       params: {
-        key: this.apiKey,
         dates: `${RELEASED_AFTER},${today}`,
         ordering: '-added',
         exclude_additions: true,
         page_size: pageSize,
         page,
         ...strategy.params,
-      }
+      },
     });
     return { count: response.data.count ?? 0, results: response.data.results ?? [] };
   }
 
-  async getGameDetails(id: number): Promise<Game | null> {
+  private async getGameDetails(id: number): Promise<Game | null> {
     try {
-      const response = await axios.get(`${RAWG_BASE_URL}/games/${id}`, {
-        params: {
-          key: this.apiKey
-        }
-      });
-      return response.data as Game;
+      const response = await this.rawg.get<Game>(`/games/${id}`);
+      return response.data;
     } catch (error) {
-      console.error(`Error fetching details for game ${id}:`, error);
+      console.error(`Error fetching details for game ${id}: ${describeError(error)}`);
       return null;
     }
   }
 }
 
-function todaysMode(): RecommendationMode {
-  const override = config.recommendationMode;
-  if (override === 'popular' || override === 'hidden-gem') {
-    return override;
-  }
-  if (override) {
-    throw new Error(`Unknown RECOMMENDATION_MODE "${override}", expected "popular" or "hidden-gem".`);
-  }
-  return HIDDEN_GEM_DAYS.includes(new Date().getUTCDay()) ? 'hidden-gem' : 'popular';
+export function modeForDate(date: Date): RecommendationMode {
+  return HIDDEN_GEM_DAYS.includes(date.getUTCDay()) ? 'hidden-gem' : 'popular';
 }
 
 // Skips adult-only content, mobile-only games, games that can't be bought anywhere (freeware, delisted,
 // fan translations) and entries without genres, which on RAWG are usually mods or incomplete data.
-function isSuitable(game: Game): boolean {
+export function isSuitable(game: Game): boolean {
   if (game.esrb_rating?.slug === 'adults-only') return false;
   if (game.tags?.some(tag => EXCLUDED_TAGS.includes(tag.slug))) return false;
   if (game.genres.length === 0) return false;
