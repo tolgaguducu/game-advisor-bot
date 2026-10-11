@@ -69,10 +69,10 @@ Without the platform's keys the bot runs in **dry-run mode**: it prints the post
 
 | Workflow | File | Schedule |
 | --- | --- | --- |
-| Post to X | `.github/workflows/post-x.yml` | Daily at 09:00 UTC |
-| Post to Bluesky | `.github/workflows/post-bluesky.yml` | Daily at 10:00 UTC |
+| Post to X | `.github/workflows/post-x.yml` | Daily at 12:44 German time (Europe/Berlin) |
+| Post to Bluesky | `.github/workflows/post-bluesky.yml` | Daily at 12:51 German time (Europe/Berlin) |
 
-Platforms are independent: they pick their own games and keep their own history. To use only one platform, add only its secrets and disable (or delete) the other workflow. To stop posting to a platform, disable its workflow in the **Actions** tab (or delete its file). To change the time, edit the `cron` line in its file. The shared steps live in `.github/workflows/post.yml`.
+Platforms are independent: they pick their own games and keep their own history. To use only one platform, add only its secrets and disable (or delete) the other workflow. To stop posting to a platform, disable its workflow in the **Actions** tab (or delete its file). To change the time, edit the `cron` and `timezone` lines in its file. The shared steps live in `.github/workflows/post.yml`.
 
 Notes:
 

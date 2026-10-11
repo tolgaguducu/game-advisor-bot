@@ -2,8 +2,10 @@ name: Post to X
 
 on:
   schedule:
-    # 09:00 UTC (12:00 TRT). GitHub may start scheduled runs a few hours late.
-    - cron: "0 9 * * *"
+    # 12:44 German time (CET/CEST, DST handled by GitHub). Off the full hour, when GitHub is busiest
+    # and may delay or drop scheduled runs. Runs can still start late under load.
+    - cron: "44 12 * * *"
+      timezone: "Europe/Berlin"
   workflow_dispatch: # Allows manual trigger from the Actions tab
 
 permissions:
