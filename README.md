@@ -5,14 +5,14 @@ A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) (
 ## Features
 
 - **Two kinds of picks:**
-  - **Popular** (most days): critically acclaimed games (Metacritic 80+) that players also rate well.
+  - **Popular** (most days): critically acclaimed games (Metacritic 80+ on RAWG, critic average 80+ on IGDB) that players also rate well.
   - **Hidden gem** (Wednesdays and Saturdays, UTC): highly rated by players (4.0+, at least 30 ratings) but outside the most popular games, excluding free-to-play titles. Falls back to a popular pick if none is found.
 - **Two game sources:** RAWG first; when it is unavailable or finds nothing, IGDB with the same rules (thresholds tuned to IGDB's data). History records games by name too, so a game is never posted twice across sources.
 - **Sensible filtering:** Games released since 2010 only. DLCs, adult-only titles, mobile-only games and games not sold in any store are skipped.
 - **Blocked companies:** Games developed or published by companies in `BLOCKED_COMPANIES` (`src/services/gameService.ts`) are never recommended. Currently: Paradox Interactive and its studios.
 - **Independent platforms:** Each platform has its own workflow, schedule and history, so one can fail or be disabled without affecting the others.
 - **No duplicates:** Every posted game is stored in `data/history/<platform>.json`, which the workflow commits back to the repo.
-- **Rich posts:** Labelled as "Game of the Day" or "Hidden Gem", with release year, Metacritic score, playtime, developer, main platforms, hashtags picked from the game's genres and tags, and the game's artwork:
+- **Rich posts:** Labelled as "Game of the Day" or "Hidden Gem", with release year, critic score (Metacritic on RAWG, critic average on IGDB), playtime (RAWG only), developer, main platforms, hashtags picked from the game's genres and tags, and the game's artwork:
 
   ```
   🎮 Game of the Day: Metro Exodus (2019)
@@ -114,3 +114,7 @@ To add a platform:
 2. Add it to `PLATFORMS` and read its credentials in `src/config/env.ts`.
 3. Create it in `createPublisher` in `src/index.ts`.
 4. Add a `.github/workflows/post-<platform>.yml` like `post-x.yml` and pass its secrets in `post.yml`.
+
+## Data sources
+
+Game data and images come from [RAWG](https://rawg.io/) and [IGDB](https://www.igdb.com/). Both are free for non-commercial use and ask you to credit them, for example in the bio of the accounts the bot posts to.
