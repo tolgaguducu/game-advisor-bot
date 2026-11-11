@@ -15,8 +15,18 @@ test('requires a known platform', () => {
   assert.throws(() => loadConfig('myspace', rawgEnv), /Usage: npm start -- <platform>/);
 });
 
-test('requires a RAWG API key', () => {
-  assert.throws(() => loadConfig('x', {}), /RAWG_API_KEY is missing/);
+test('requires at least one game source', () => {
+  assert.throws(() => loadConfig('x', {}), /No game source is configured/);
+  assert.equal(loadConfig('x', { IGDB_CLIENT_ID: 'id', IGDB_CLIENT_SECRET: 'secret' }).rawgApiKey, undefined);
+});
+
+test('reads IGDB credentials for every platform', () => {
+  const env = { ...rawgEnv, IGDB_CLIENT_ID: 'id', IGDB_CLIENT_SECRET: 'secret' };
+
+  assert.deepEqual(loadConfig('x', env).igdb, { clientId: 'id', clientSecret: 'secret' });
+  assert.deepEqual(loadConfig('bluesky', env).igdb, { clientId: 'id', clientSecret: 'secret' });
+  assert.equal(loadConfig('x', rawgEnv).igdb, undefined);
+  assert.throws(() => loadConfig('x', { ...rawgEnv, IGDB_CLIENT_ID: 'id' }), /Missing IGDB_CLIENT_SECRET/);
 });
 
 test('leaves X unconfigured when none of its variables are set', () => {

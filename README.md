@@ -1,12 +1,13 @@
 # 🎮 Daily Game Recommendation Bot
 
-A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) every day and posts it to X (Twitter) and/or Bluesky, running for free on GitHub Actions.
+A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) (or [IGDB](https://www.igdb.com/) when RAWG is down) every day and posts it to X (Twitter) and/or Bluesky, running for free on GitHub Actions.
 
 ## Features
 
 - **Two kinds of picks:**
   - **Popular** (most days): critically acclaimed games (Metacritic 80+) that players also rate well.
   - **Hidden gem** (Wednesdays and Saturdays, UTC): highly rated by players (4.0+, at least 30 ratings) but outside the most popular games, excluding free-to-play titles. Falls back to a popular pick if none is found.
+- **Two game sources:** RAWG first; when it is unavailable or finds nothing, IGDB with the same rules (thresholds tuned to IGDB's data). History records games by name too, so a game is never posted twice across sources.
 - **Sensible filtering:** Games released since 2010 only. DLCs, adult-only titles, mobile-only games and games not sold in any store are skipped.
 - **Blocked companies:** Games developed or published by companies in `BLOCKED_COMPANIES` (`src/services/gameService.ts`) are never recommended. Currently: Paradox Interactive and its studios.
 - **Independent platforms:** Each platform has its own workflow, schedule and history, so one can fail or be disabled without affecting the others.
@@ -27,7 +28,9 @@ A TypeScript bot that picks a well-rated game from [RAWG.io](https://rawg.io/) e
 ## Requirements
 
 - Node.js 22+
-- A RAWG API key ([rawg.io/apidocs](https://rawg.io/apidocs))
+- At least one game source:
+  - a RAWG API key ([rawg.io/apidocs](https://rawg.io/apidocs)), and/or
+  - IGDB credentials: a Client ID and Client Secret from an app in the [Twitch developer console](https://dev.twitch.tv/console) (free for non-commercial use, requires 2FA on the Twitch account)
 - For X: a developer app with **Read and Write** permissions and credits on your account
 - For Bluesky: an account and an [app password](https://bsky.app/settings/app-passwords) (free)
 
@@ -44,7 +47,8 @@ cp .env.example .env   # then fill in your keys
 
 | Variable | Description |
 | --- | --- |
-| `RAWG_API_KEY` | RAWG API key (required) |
+| `RAWG_API_KEY` | RAWG API key (primary game source) |
+| `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | Twitch app credentials for IGDB (fallback game source) |
 | `TWITTER_API_KEY` / `TWITTER_API_SECRET` | App's API key and secret (consumer keys) |
 | `TWITTER_ACCESS_TOKEN` / `TWITTER_ACCESS_SECRET` | Access token and secret for the posting account (generate them *after* enabling Read and Write) |
 | `BLUESKY_IDENTIFIER` | Bluesky handle without `@` (e.g. `name.bsky.social`) |
@@ -64,7 +68,7 @@ Without the platform's keys the bot runs in **dry-run mode**: it prints the post
 ## Deployment (GitHub Actions)
 
 1. Fork or push the repository to GitHub.
-2. Under **Settings → Secrets and variables → Actions**, add `RAWG_API_KEY` and the keys of the platforms you use.
+2. Under **Settings → Secrets and variables → Actions**, add the game source keys (`RAWG_API_KEY`, `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`) and the keys of the platforms you use.
 3. Each platform has its own workflow that runs on its own schedule and can also be started manually from the **Actions** tab:
 
 | Workflow | File | Schedule |
@@ -93,7 +97,9 @@ src/
 ├── post.ts             # Builds the platform-independent post text and image
 ├── config/env.ts       # Reads and validates the platform argument and environment variables
 ├── services/
+│   ├── gameSource.ts       # Source interface, RAWG → IGDB fallback, history keys
 │   ├── gameService.ts      # Game selection from RAWG (modes, thresholds, filters)
+│   ├── igdbService.ts      # Game selection from IGDB, mapped to the same format
 │   └── historyService.ts   # data/history/<platform>.json
 ├── publishers/
 │   ├── publisher.ts        # Interface every platform implements

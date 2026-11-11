@@ -25,6 +25,19 @@ test('loads existing ids and persists new ones', () => {
   assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf-8')), [1, 2, 3]);
 });
 
+test('stores string keys next to legacy numeric ids and counts games, not name keys', () => {
+  const file = tempFile('[1, 2]');
+  const history = new HistoryService(file);
+
+  history.add('igdb:7', 'name:celeste');
+
+  assert.equal(history.has('igdb:7'), true);
+  assert.equal(history.has('name:celeste'), true);
+  assert.equal(history.has(1), true);
+  assert.equal(history.count, 3);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf-8')), [1, 2, 'igdb:7', 'name:celeste']);
+});
+
 test('starts empty and creates the file when it does not exist', () => {
   const file = tempFile();
   const history = new HistoryService(file);

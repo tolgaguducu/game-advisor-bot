@@ -12,6 +12,8 @@ export interface Game {
   esrb_rating?: { slug: string } | null;
   description_raw?: string;
   metacritic?: number;
+  /** Average critic score from a source other than Metacritic (IGDB) */
+  critic_score?: number;
   playtime?: number;
   platforms?: { platform: Platform }[];
   developers?: Company[];

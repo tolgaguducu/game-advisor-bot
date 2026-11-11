@@ -1,8 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import { HistoryKey } from './gameSource';
 
 export class HistoryService {
-  private history = new Set<number>();
+  // RAWG game IDs (numbers), "igdb:<id>" and "name:<normalized name>" keys.
+  private history = new Set<HistoryKey>();
 
   constructor(private readonly file: string) {
     this.load();
@@ -16,7 +18,7 @@ export class HistoryService {
 
     const ids = JSON.parse(fs.readFileSync(this.file, 'utf-8'));
     if (!Array.isArray(ids)) {
-      throw new Error(`${this.file} must contain a JSON array of game IDs.`);
+      throw new Error(`${this.file} must contain a JSON array of history keys.`);
     }
     this.history = new Set(ids);
   }
@@ -26,16 +28,17 @@ export class HistoryService {
     fs.writeFileSync(this.file, JSON.stringify(Array.from(this.history), null, 2));
   }
 
-  has(gameId: number): boolean {
-    return this.history.has(gameId);
+  has(key: HistoryKey): boolean {
+    return this.history.has(key);
   }
 
-  add(gameId: number) {
-    this.history.add(gameId);
+  add(...keys: HistoryKey[]) {
+    keys.forEach(key => this.history.add(key));
     this.save();
   }
 
+  /** Number of recommended games. Name keys only duplicate an ID key, so they are not counted. */
   get count(): number {
-    return this.history.size;
+    return [...this.history].filter(key => !String(key).startsWith('name:')).length;
   }
 }

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, mock, test } from 'node:test';
 import { BotOptions, runBot } from '../src/bot';
 import { Publisher } from '../src/publishers/publisher';
+import { HistoryKey } from '../src/services/gameSource';
 import { Game } from '../src/types/game';
 import { makeGame } from './fixtures';
 
@@ -13,10 +14,10 @@ beforeEach(() => {
 });
 
 function setup(publisher?: Publisher, game: Game | null = makeGame({ id: 42 })) {
-  const added: number[] = [];
+  const added: HistoryKey[] = [];
   const options: BotOptions = {
-    gameService: { getRandomGame: async () => game && { game, mode: 'popular' } },
-    history: { has: () => false, add: id => { added.push(id); } },
+    gameSource: { getRandomGame: async () => game && { game, mode: 'popular', historyKeys: [game.id, 'name:celeste'] } },
+    history: { has: () => false, add: (...keys) => { added.push(...keys); } },
     publisher,
     mode: 'popular',
   };
@@ -43,7 +44,7 @@ test('posts the game and records it', async () => {
 
   assert.equal(x.posts.length, 1);
   assert.match(x.posts[0], /Game of the Day: Celeste/);
-  assert.deepEqual(added, [42]);
+  assert.deepEqual(added, [42, 'name:celeste']);
 });
 
 test('fails without recording the game when posting fails', async () => {

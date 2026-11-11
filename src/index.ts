@@ -6,6 +6,8 @@ import { Publisher } from './publishers/publisher';
 import { BlueskyPublisher } from './publishers/blueskyPublisher';
 import { TwitterPublisher } from './publishers/twitterPublisher';
 import { GameService, modeForDate } from './services/gameService';
+import { FallbackGameSource, GameSource } from './services/gameSource';
+import { IgdbService } from './services/igdbService';
 import { HistoryService } from './services/historyService';
 import { describeError } from './utils/errors';
 
@@ -16,6 +18,14 @@ function createPublisher(config: Config): Publisher | undefined {
     case 'bluesky':
       return config.bluesky && new BlueskyPublisher(config.bluesky);
   }
+}
+
+// RAWG first, IGDB when RAWG is down or finds nothing.
+function createGameSource(config: Config): GameSource {
+  const sources: GameSource[] = [];
+  if (config.rawgApiKey) sources.push(new GameService(config.rawgApiKey));
+  if (config.igdb) sources.push(new IgdbService(config.igdb));
+  return new FallbackGameSource(sources);
 }
 
 async function main() {
@@ -32,7 +42,7 @@ async function main() {
   console.log(`📚 History contains ${history.count} games.`);
 
   await runBot({
-    gameService: new GameService(config.rawgApiKey),
+    gameSource: createGameSource(config),
     history,
     publisher,
     mode: config.recommendationMode ?? modeForDate(new Date()),

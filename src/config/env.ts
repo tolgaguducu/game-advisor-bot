@@ -1,4 +1,4 @@
-import { RECOMMENDATION_MODES, RecommendationMode } from '../services/gameService';
+import { RECOMMENDATION_MODES, RecommendationMode } from '../services/gameSource';
 
 export const PLATFORMS = ['x', 'bluesky'] as const;
 export type Platform = typeof PLATFORMS[number];
@@ -17,9 +17,16 @@ export interface BlueskyCredentials {
   appPassword: string;
 }
 
+export interface IgdbCredentials {
+  clientId: string;
+  clientSecret: string;
+}
+
 export interface Config {
   platform: Platform;
-  rawgApiKey: string;
+  /** At least one game source is configured: RAWG first, IGDB as fallback. */
+  rawgApiKey?: string;
+  igdb?: IgdbCredentials;
   /** Forces a mode instead of picking one based on the day. */
   recommendationMode?: RecommendationMode;
   /** Only read for the selected platform. Undefined when not configured, which means dry run. */
@@ -32,14 +39,16 @@ type Env = Record<string, string | undefined>;
 export function loadConfig(platformArg: string | undefined, env: Env = process.env): Config {
   const platform = parsePlatform(platformArg);
 
-  const rawgApiKey = env.RAWG_API_KEY;
-  if (!rawgApiKey) {
-    throw new Error('RAWG_API_KEY is missing. Add it to your .env file or repository secrets.');
+  const rawgApiKey = env.RAWG_API_KEY || undefined;
+  const igdb = readGroup(env, { clientId: 'IGDB_CLIENT_ID', clientSecret: 'IGDB_CLIENT_SECRET' });
+  if (!rawgApiKey && !igdb) {
+    throw new Error('No game source is configured. Set RAWG_API_KEY and/or IGDB_CLIENT_ID and IGDB_CLIENT_SECRET.');
   }
 
   return {
     platform,
     rawgApiKey,
+    igdb,
     recommendationMode: parseMode(env.RECOMMENDATION_MODE),
     twitter: platform === 'x' ? readGroup(env, {
       appKey: 'TWITTER_API_KEY',

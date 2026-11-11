@@ -1,4 +1,4 @@
-import { RecommendationMode } from './services/gameService';
+import { RecommendationMode } from './services/gameSource';
 import { Game } from './types/game';
 
 export interface Post {
@@ -47,7 +47,7 @@ const TOPIC_HASHTAGS: { source: 'tags' | 'genres'; slug: string; hashtag: string
 
 // Only three platforms are listed, so the most relevant ones go first. Unlisted platforms come last.
 const PLATFORM_ORDER = [
-  'pc', 'playstation5', 'xbox-series-x', 'nintendo-switch',
+  'pc', 'playstation5', 'xbox-series-x', 'nintendo-switch-2', 'nintendo-switch',
   'playstation4', 'xbox-one', 'macos', 'linux', 'ios', 'android',
 ];
 
@@ -64,7 +64,7 @@ export function formatPost(game: Game, mode: RecommendationMode): Post {
   const title = `${HEADERS[mode]}: ${game.name}${year ? ` (${year})` : ''}`;
 
   const stats = [
-    game.metacritic && `⭐️ Metacritic ${game.metacritic}`,
+    game.metacritic ? `⭐️ Metacritic ${game.metacritic}` : game.critic_score && `⭐️ Critics ${game.critic_score}`,
     game.playtime && `⏱️ ${game.playtime} hours`,
   ].filter(Boolean).join(' · ');
   // RAWG often lists the publisher among the developers too, prefer the actual studio.

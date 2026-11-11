@@ -1,15 +1,13 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { Game } from '../types/game';
 import { describeError } from '../utils/errors';
+import { addRetries } from '../utils/retry';
+import { findWithModeFallback, GameSource, History, nameKey, Recommendation, RecommendationMode, shuffle } from './gameSource';
 
 const RAWG_BASE_URL = 'https://api.rawg.io/api';
 const RELEASED_AFTER = '2010-01-01';
 const PAGE_SIZE = 40;
 const MAX_ATTEMPTS = 8;
-
-// RAWG sits behind Cloudflare and sometimes answers 5xx for a minute or so. Retrying is better than a failed day.
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 20_000; // multiplied by the retry number: 20s, 40s, 60s
 
 // Popular days: critically acclaimed games that players also liked, ordered by how many RAWG users have them.
 const MIN_METACRITIC = 80;
@@ -39,8 +37,6 @@ const BLOCKED_COMPANIES = [
   'paradox-north-ab',
 ];
 
-export const RECOMMENDATION_MODES = ['popular', 'hidden-gem'] as const;
-export type RecommendationMode = typeof RECOMMENDATION_MODES[number];
 
 interface Strategy {
   params: Record<string, string>;
@@ -67,53 +63,17 @@ const STRATEGIES: Record<RecommendationMode, Strategy> = {
   },
 };
 
-type History = { has: (id: number) => boolean };
-
-export interface Recommendation {
-  game: Game;
-  /** The mode the game was actually found with, which differs from the requested one after a fallback. */
-  mode: RecommendationMode;
-}
-
-export class GameService {
+export class GameService implements GameSource {
+  readonly name = 'RAWG';
   private readonly rawg: AxiosInstance;
 
-  constructor(apiKey: string, private readonly retryDelayMs = RETRY_DELAY_MS) {
-    this.rawg = axios.create({ baseURL: RAWG_BASE_URL, params: { key: apiKey } });
-    this.rawg.interceptors.response.use(undefined, error => this.retry(error));
-  }
-
-  private async retry(error: unknown) {
-    if (!axios.isAxiosError(error) || !error.config) {
-      throw error;
-    }
-    const status = error.response?.status;
-    const retryable = status === undefined || status === 429 || status >= 500;
-    const config: InternalAxiosRequestConfig & { retryCount?: number } = error.config;
-    const retry = (config.retryCount ?? 0) + 1;
-    if (!retryable || retry > MAX_RETRIES) {
-      throw error;
-    }
-
-    config.retryCount = retry;
-    const delay = this.retryDelayMs * retry;
-    console.warn(`⚠️  ${describeError(error)}, retrying in ${delay / 1000}s (${retry}/${MAX_RETRIES})...`);
-    await new Promise(resolve => setTimeout(resolve, delay));
-    return this.rawg.request(config);
+  constructor(apiKey: string, retryDelayMs?: number) {
+    this.rawg = addRetries(axios.create({ baseURL: RAWG_BASE_URL, params: { key: apiKey } }), retryDelayMs);
   }
 
   async getRandomGame(history: History, mode: RecommendationMode): Promise<Recommendation | null> {
-    const game = await this.findGame(STRATEGIES[mode], history);
-    if (game) {
-      return { game, mode };
-    }
-    if (mode === 'popular') {
-      return null;
-    }
-
-    console.log('No hidden gem found, falling back to a popular game...');
-    const fallback = await this.findGame(STRATEGIES['popular'], history);
-    return fallback && { game: fallback, mode: 'popular' };
+    const found = await findWithModeFallback(mode, mode => this.findGame(STRATEGIES[mode], history));
+    return found && { ...found, historyKeys: [found.game.id, nameKey(found.game.name)] };
   }
 
   private async findGame(strategy: Strategy, history: History): Promise<Game | null> {
@@ -127,7 +87,7 @@ export class GameService {
 
       const candidates = shuffle(results).filter(game => isSuitable(game) && strategy.accepts(game));
       for (const candidate of candidates) {
-        if (history.has(candidate.id)) {
+        if (history.has(candidate.id) || history.has(nameKey(candidate.name))) {
           console.log(`Skipping ${candidate.name} (already recommended)...`);
           continue;
         }
@@ -190,13 +150,4 @@ export function isSuitable(game: Game): boolean {
 
 export function isBlocked(game: Game): boolean {
   return [...(game.developers ?? []), ...(game.publishers ?? [])].some(company => BLOCKED_COMPANIES.includes(company.slug));
-}
-
-function shuffle<T>(items: T[]): T[] {
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
 }
